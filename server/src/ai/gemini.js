@@ -71,7 +71,7 @@ class GeminiService {
     }
 
     try {
-      const modelName = process.env.GEMINI_MODEL || "gemini-3.5-flash";
+      const modelName = process.env.GEMINI_MODEL || "gemini-3-flash-preview";
 
       const prompt = `You are the Master AI Mystery Architect.
 Generate a complete, solvable fictional detective mystery based on this premise:
@@ -129,7 +129,8 @@ RETURN STRICT JSON conforming to this schema:
 }`;
 
       // Try primary model, with fallback candidate if 503/busy
-      const candidateModels = [modelName, "gemini-3.5-flash-lite", "gemini-flash-latest"];
+      const defaultModel = process.env.GEMINI_MODEL || "gemini-3-flash-preview";
+      const candidateModels = Array.from(new Set([defaultModel, "gemini-3-flash-preview", "gemini-3.5-flash"]));
       let response = null;
 
       for (const currentModel of candidateModels) {
@@ -143,12 +144,15 @@ RETURN STRICT JSON conforming to this schema:
           });
           const generatePromise = model.generateContent(prompt);
           const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error("Timeout")), 10000)
+            setTimeout(() => reject(new Error("Timeout after 16s")), 16000)
           );
           response = await Promise.race([generatePromise, timeoutPromise]);
-          if (response) break;
+          if (response) {
+            console.log(`[GeminiService] Successfully generated case using AI model: ${currentModel}`);
+            break;
+          }
         } catch (mErr) {
-          console.warn(`[GeminiService] Model ${currentModel} error: ${mErr.message}, trying next...`);
+          console.warn(`[GeminiService] Model ${currentModel} error: ${mErr.message}, trying next candidate...`);
         }
       }
 
